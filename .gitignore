@@ -213,3 +213,5 @@ __marimo__/
 *.db
 
 public/
+
+node_modules/
