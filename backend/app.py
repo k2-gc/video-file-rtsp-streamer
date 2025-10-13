@@ -58,7 +58,8 @@ def list_videos():
         "title": video.title,
         "status": video.status,
         "time": video.upload_time.isoformat(),
-        "file_path": video.file_path
+        "file_path": video.file_path,
+        "proc": video.proc,
     } for video in videos]
     return videos
 
