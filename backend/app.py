@@ -16,6 +16,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+rtsp_host = os.getenv('RTSP_SERVER_HOST', 'localhost')
+
 VideoCRUD.create_tables()
 
 UPLOAD_DIR = "uploads"
@@ -110,7 +112,7 @@ def start_rtsp_stream(video_id: int):
             "-preset", "ultrafast",
             "-tune", "zerolatency",
             "-f", "rtsp",
-            f"rtsp://localhost:8554/stream/{video_id}"
+            f"rtsp://{rtsp_host}:8554/stream/{video_id}"
         ]
         if os.name == 'nt':
             proc = subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
