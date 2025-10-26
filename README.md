@@ -94,3 +94,33 @@ This project is licensed under the MIT License.
 - FFmpeg (LGPL/GPL) - External process for RTSP streaming
 - MediaMTX (MIT) - Docker container for RTSP server
 - No third-party code is embedded or statically linked in this project
+
+## TODO / Roadmap
+
+### High Priority
+- [ ] **Implement persistent volume for database**
+  - SQLite data persistence across container restarts
+  - Prevent data loss on container recreation
+
+- [ ] **Enhanced stream status management**
+  - Check streaming status using database flags
+  - Display real-time stream status in video list
+  - Show RTSP URI for active streams in table
+
+### Medium Priority  
+- [ ] **Stream monitoring**
+  - Health check for active RTSP streams
+  - Auto-restart failed streams
+  - Stream analytics and logging
+
+- [ ] **User experience improvements**
+  - Video preview thumbnails
+  - Batch upload support
+  - Download/export functionality
+
+### Infrastructure
+- [ ] **Production deployment**
+  - CI/CD pipeline setup
+  - Docker production optimizations
+  - Environment-specific configurations
+  - Monitoring and logging setup
