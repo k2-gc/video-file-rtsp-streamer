@@ -6,6 +6,7 @@ A web-based application for managing video files and streaming them via RTSP pro
 ## Features
 - 📁 Video file upload with drag & drop support
 - 📺 RTSP stream management (start/stop)
+- 🎨 Professional light/dark theme toggle
 - 🗃️ SQLite database for video metadata
 
 ## Tech Stack
@@ -19,22 +20,32 @@ A web-based application for managing video files and streaming them via RTSP pro
 * SQLite
 * FFmpeg for RTSP streaming
 
+### Infrastructure
+* Docker & Docker Compose
+
 ### Prerequisites
-* Node.js + npm
-* Python 3.8+
-* FFmpeg
-* Docker (for RTSP server)
+* Docker & Docker Compose **(recommended)**
+* Manually: Node.js + npm, Python 3.8+, FFmpeg and Docker (For RTSP server)
 
 ## Quick Start
+### Option 1: Docker Compose
+```bash
+# Clone this repository
+cd video-file-rtsp-streamer
+docker compose up --build
+# or
+docker-compose up --build
+```
 
-### 1. Backend Setup
+### Option 2: Manual Setup
+#### 1. Backend Setup
 ```bash
 cd backend
 pip install -r requirements.txt
 python app.py
 ```
 
-### 2. Frontend Setup
+#### 2. Frontend Setup
 ```bash
 cd frontend
 npm install
@@ -42,7 +53,7 @@ npm start
 ```
 > **Note**: In this repo, we use dev mode.
 
-### 3. RTSP Server Setup
+#### 3. RTSP Server Setup
 We use `bluenviron/mediamtx` to stream RTSP from ffmpeg.
 ```bash
 docker run --rm -it \
@@ -57,17 +68,24 @@ docker run --rm -it \
 bluenviron/mediamtx
 ```
 
+## Access Points
 The application will be available at:
 - **Frontend**: http://localhost:3000
 - **Backend API Document**: http://localhost:8000/docs
 - **RTSP Streams**: `rtsp://localhost:8554/stream/{video_id}`
 
 ## Usage
-1. Launch backend and frontend apps.
-1. Start the RTSP server using Docker
+1. Start all services using docker or manually
 1. Access http://localhost:3000 in your browser
 1. Upload MP4 files.
-1. Start RTSP streams and play via ffplay, VLC, etc.
+1. Start RTSP streams for uploaded videos
+1. Play streams via ffplay, VLC or any RTSP client
+
+## Docker Services
+- **backend**: FastAPI server with SQLite database
+- **frontend**: React development server
+- **rtsp-server**: MediaMTX RTSP streaming server
+
 
 ## License
 This project is licensed under the MIT License.
