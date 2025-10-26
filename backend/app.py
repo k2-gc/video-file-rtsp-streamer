@@ -110,16 +110,7 @@ def start_rtsp_stream(video_id: int):
             "-preset", "ultrafast",
             "-tune", "zerolatency",
             "-f", "rtsp",
-            # "-rtsp_flags", "listen",
-            f"rtsp://localhost:8554/stream/{video_id}"  # 例: RTSPサーバーのURL
-
-            # "ffmpeg",
-            # "-stream_loop", "-1",   # Loop forever
-            # "-re",
-            # "-i", video_path,
-            # "-c:v", "libx264",
-            # "-f", "rtsp",
-            # "rtsp://localhost:8554/stream/{video_id}"  # 例: RTSPサーバーのURL
+            f"rtsp://localhost:8554/stream/{video_id}"
         ]
         if os.name == 'nt':
             proc = subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
@@ -150,8 +141,7 @@ def stop_rtsp_stream(video_id: int):
         print("Stream already stopped for this video")
         return {"status": "error", "message": "Stream already stopped for this video"}
     try:
-        # プロセスを終了 here
-        # How?
+        # Terminate the process
         if os.name == 'nt':  # Windows
             os.kill(video.proc, signal.CTRL_BREAK_EVENT)
         else:  # Unix系
