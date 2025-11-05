@@ -6,8 +6,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-     - ./backend/uploads:/app/uploads
-     - ./backend/data:/app/data
+     - uploads_data:/app/uploads
+     - db_data:/app/data
     environment:
       - PYTHONPATH=/app
       - RTSP_SERVER_HOST=rtsp-server
@@ -41,3 +41,6 @@ services:
 networks:
   app-network:
     driver: bridge
+volumes:
+  db_data:
+  uploads_data:
