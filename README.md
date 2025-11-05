@@ -115,9 +115,9 @@ This project is licensed under the MIT License.
 ## TODO / Roadmap
 
 ### High Priority
-- [ ] **Implement persistent volume for database**
-  - SQLite data persistence across container restarts
-  - Prevent data loss on container recreation
+- [x] **Implement persistent volume for database**
+  - ✅ SQLite data persistence across container restarts
+  - ✅ Prevent data loss on container recreation
 
 - [x] **Enhanced stream status management**
   - ✅ Check streaming status using database flags
