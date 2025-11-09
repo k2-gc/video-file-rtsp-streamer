@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  devcontainer:
+    image: node:20.0.0
+    volumes:
+      - ./:/workspace
+      - node_modules_cache:/workspace/frontend/node_modules
+    working_dir: /workspace
+    command: ["sleep", "infinity"]
+    networks:
+      - app-network
+    depends_on:
+      - backend
+      - frontend
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+     - ./backend:/app
+     - dev_uploads_data:/app/uploads
+     - dev_db_data:/app/data
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      - PYTHONPATH=/app
+      - RTSP_SERVER_HOST=rtsp-server
+      - DATABASE_PATH=sqlite:///./data/videos.db
+    depends_on:
+      - rtsp-server
+    networks:
+      - app-network
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    networks:
+      - app-network
+  rtsp-server:
+    image: bluenviron/mediamtx
+    ports:
+      - "8554:8554"
+      - "1935:1935"
+      - "8888:8888"
+      - "8889:8889"
+      - "8890:8890/udp"
+      - "8189:8189/udp"
+    environment:
+      - MTX_RTSPTRANSPORTS=tcp
+      - MTX_WEBRTCADDITIONALHOSTS=192.168.x.x
+    networks:
+      - app-network
+networks:
+  app-network:
+    driver: bridge
+volumes:
+  dev_db_data:
+  dev_uploads_data:
+  node_modules_cache:

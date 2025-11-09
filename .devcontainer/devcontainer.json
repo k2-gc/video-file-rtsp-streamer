@@ -1,0 +1,8 @@
+{
+    "name": "rtsp-streamer-dev",
+    "dockerComposeFile": [
+        "../docker-compose.dev.yml"
+    ],
+    "service": "devcontainer",
+    "workspaceFolder": "/workspace",
+}
