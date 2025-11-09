@@ -31,7 +31,6 @@ services:
       - "8888:8888"
     environment:
       - MTX_RTSPTRANSPORTS=tcp
-      - MTX_WEBRTCADDITIONALHOSTS=192.168.x.x
     networks:
       - app-network
 networks:
