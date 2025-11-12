@@ -1,13 +1,12 @@
-FROM python:3.12.12-slim
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 COPY . /app/
 
 RUN apt update && \
     apt install -y ffmpeg && \
-    apt clean && rm -rf /var/lib/apt/lists/* && \
-    pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    apt clean && rm -rf /var/lib/apt/lists/*
+RUN if [ -f uv.lock ]; then uv sync --frozen; else uv sync; fi
 
-CMD ["python", "app.py"]
+CMD ["uv", "run", "app.py"]
 

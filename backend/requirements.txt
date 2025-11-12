@@ -1,5 +1,0 @@
-fastapi==0.118.0
-python-multipart==0.0.20
-SQLAlchemy==2.0.43
-uvicorn==0.37.0
-psutil==7.1.3
