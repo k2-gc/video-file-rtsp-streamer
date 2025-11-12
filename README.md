@@ -75,9 +75,13 @@ The application will be available at:
 This project is licensed under the MIT License.
 
 **Third-Party Dependencies**:
-- FFmpeg (LGPL/GPL) - External process for RTSP streaming
-- MediaMTX (MIT) - Docker container for RTSP server
-- No third-party code is embedded or statically linked in this project
+- **FFmpeg** (LGPL/GPL) - External process for RTSP streaming
+  - Not distributed with this project
+  - Used as external subprocess (no linking)
+- **MediaMTX** (MIT) - Docker container for RTSP server
+- No GPL/LGPL code is embedded or statically linked in this project
+
+Users are responsible for complying with FFmpeg's license terms in their own deployments.
 
 ## TODO / Roadmap
 
