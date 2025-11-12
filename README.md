@@ -24,8 +24,7 @@ A web-based application for managing video files and streaming them via RTSP pro
 * Docker & Docker Compose
 
 ### Prerequisites
-* Docker & Docker Compose **(recommended)**
-* Manually: Node.js + npm, Python 3.8+, FFmpeg and Docker (For RTSP server)
+* Docker & Docker Compose
 
 ## Screenshots
 ### Home
@@ -45,7 +44,6 @@ A web-based application for managing video files and streaming them via RTSP pro
 *RTSP streaming play with media player*
 
 ## Quick Start
-### Option 1: Docker Compose
 ```bash
 # Clone this repository
 cd video-file-rtsp-streamer
@@ -54,34 +52,6 @@ docker compose up --build
 docker-compose up --build
 ```
 
-### Option 2: Manual Setup
-#### 1. Backend Setup
-```bash
-cd backend
-pip install -r requirements.txt
-python app.py
-```
-
-#### 2. Frontend Setup
-```bash
-cd frontend
-npm install
-npm start
-```
-> **Note**: In this repo, we use dev mode.
-
-#### 3. RTSP Server Setup
-We use `bluenviron/mediamtx` to stream RTSP from ffmpeg.
-```bash
-docker run --rm -it \
--e MTX_RTSPTRANSPORTS=tcp \
--p 8554:8554 \
--p 8888:8888 \
-bluenviron/mediamtx
-```
-
-**NOTE:** Only essential ports (RTSP/Web UI) are exposed
-
 ## Access Points
 The application will be available at:
 - **Frontend**: http://localhost:3000
@@ -89,7 +59,7 @@ The application will be available at:
 - **RTSP Streams**: `rtsp://localhost:8554/stream/{video_id}`
 
 ## Usage
-1. Start all services using docker or manually
+1. Start all services using docker
 1. Access http://localhost:3000 in your browser
 1. Upload MP4 files.
 1. Start RTSP streams for uploaded videos
