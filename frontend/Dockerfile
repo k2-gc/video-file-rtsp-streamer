@@ -6,6 +6,8 @@ RUN npm install
 COPY ./src /app/src/
 COPY tsconfig.json /app/
 COPY ./public /app/public/
+ARG REACT_APP_API_URL=http://localhost:8000/api
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
 RUN npm run build
 
 # --- Production stage ---

@@ -12,19 +12,31 @@ services:
       - PYTHONPATH=/app
       - RTSP_SERVER_HOST=rtsp-server
       - DATABASE_PATH=sqlite:///./data/videos.db
-      - ALLOWED_ORIGINS=http://localhost:3000
+      - ALLOWED_ORIGINS=http://localhost
     depends_on:
       - rtsp-server
     networks:
       - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/videos')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - REACT_APP_API_URL=/api
     ports:
-      - "3000:3000"
+      - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - app-network
+    restart: unless-stopped
   rtsp-server:
     image: bluenviron/mediamtx
     ports:
@@ -34,6 +46,7 @@ services:
       - MTX_RTSPTRANSPORTS=tcp
     networks:
       - app-network
+    restart: unless-stopped
 networks:
   app-network:
     driver: bridge
