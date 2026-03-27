@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +10,27 @@ import subprocess
 import signal
 import uuid
 
-from models import VideoCRUD, get_db
+from models import (
+    VideoCRUD,
+    get_db,
+    cleanup_orphaned_processes,
+    SessionLocal,
+    Base,
+    engine,
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: create tables and clean up stale stream processes
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        cleanup_orphaned_processes(db)
+    finally:
+        db.close()
+    yield
+
 
 MAX_UPLOAD_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB
 
@@ -25,7 +46,8 @@ class UploadSizeLimitMiddleware(BaseHTTPMiddleware):
                 )
         return await call_next(request)
 
-app = FastAPI()
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(UploadSizeLimitMiddleware)
 
@@ -38,9 +60,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-rtsp_host = os.getenv('RTSP_SERVER_HOST', 'localhost')
-
-VideoCRUD.create_tables()
+rtsp_host = os.getenv("RTSP_SERVER_HOST", "localhost")
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -62,29 +82,36 @@ async def upload_video(file: UploadFile = File(...), db: Session = Depends(get_d
         status = "failed"
         error_msg = str(e)
     video_crud = VideoCRUD(db)
-    video = video_crud.create(title=file.filename, file_path=file_location, status=status)
+    video = video_crud.create(
+        title=file.filename, file_path=file_location, status=status
+    )
     return {
         "id": video.id,
         "title": video.title,
         "status": video.status,
         "upload_time": video.upload_time.isoformat(),
         "file_path": video.file_path,
-        "error_msg": error_msg
+        "error_msg": error_msg,
     }
+
 
 @app.get("/api/videos/list")
 def list_videos(db: Session = Depends(get_db)):
     video_crud = VideoCRUD(db)
     videos = video_crud.list()
-    videos = [{
-        "id": video.id,
-        "title": video.title,
-        "status": video.status,
-        "time": video.upload_time.isoformat(),
-        "file_path": video.file_path,
-        "proc": video.proc,
-    } for video in videos]
+    videos = [
+        {
+            "id": video.id,
+            "title": video.title,
+            "status": video.status,
+            "time": video.upload_time.isoformat(),
+            "file_path": video.file_path,
+            "proc": video.proc,
+        }
+        for video in videos
+    ]
     return videos
+
 
 @app.get("/api/videos/{video_id}")
 def get_video(video_id: int, db: Session = Depends(get_db)):
@@ -96,9 +123,10 @@ def get_video(video_id: int, db: Session = Depends(get_db)):
             "title": video.title,
             "status": video.status,
             "upload_time": video.upload_time.isoformat(),
-            "file_path": video.file_path
+            "file_path": video.file_path,
         }
     return {"error": "Video not found"}
+
 
 @app.delete("/api/videos/{video_id}")
 def delete_video(video_id: int, db: Session = Depends(get_db)):
@@ -107,6 +135,7 @@ def delete_video(video_id: int, db: Session = Depends(get_db)):
     if success:
         return {"message": "Video deleted successfully"}
     return {"error": "Video not found or could not be deleted"}
+
 
 @app.get("/api/stream/{video_id}/start")
 def start_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
@@ -124,25 +153,38 @@ def start_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
         cmd = [
             "ffmpeg",
             "-re",
-            "-stream_loop", "-1",
-            "-i", video_path,
-            "-c:v", "libx264",
-            "-preset", "ultrafast",
-            "-tune", "zerolatency",
-            "-f", "rtsp",
-            f"rtsp://{rtsp_host}:8554/stream/{video_id}"
+            "-stream_loop",
+            "-1",
+            "-i",
+            video_path,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-tune",
+            "zerolatency",
+            "-f",
+            "rtsp",
+            f"rtsp://{rtsp_host}:8554/stream/{video_id}",
         ]
-        if os.name == 'nt':
-            proc = subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+        if os.name == "nt":
+            proc = subprocess.Popen(
+                cmd, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            )
         else:
             proc = subprocess.Popen(cmd)
         video_crud.update(video_id, proc=proc.pid)
         print(f"Started RTSP stream for video ID {video_id} with PID {proc.pid}")
-        return {"status": "success", "id": video_id, "message": f"RTSP stream started for video ID {video_id}"}
+        return {
+            "status": "success",
+            "id": video_id,
+            "message": f"RTSP stream started for video ID {video_id}",
+        }
     except Exception as e:
         video_crud.update(video_id, proc=None)
         print(f"Error starting RTSP stream: {e}")
         return {"status": "error", "message": str(e)}
+
 
 @app.get("/api/stream/{video_id}/stop")
 def stop_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
@@ -156,15 +198,21 @@ def stop_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
         return {"status": "error", "message": "Stream already stopped for this video"}
     try:
         # Terminate the process
-        if os.name == 'nt':  # Windows
+        if os.name == "nt":  # Windows
             os.kill(video.proc, signal.CTRL_BREAK_EVENT)
         else:  # Unix系
             os.kill(video.proc, signal.SIGTERM)
         video_crud.update(video_id, proc=None)
-        return {"status": "success", "id": video_id, "message": f"RTSP stream stopped for video ID {video_id}"}
+        return {
+            "status": "success",
+            "id": video_id,
+            "message": f"RTSP stream stopped for video ID {video_id}",
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
