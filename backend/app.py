@@ -1,5 +1,8 @@
 from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -35,6 +38,40 @@ async def lifespan(app: FastAPI):
 MAX_UPLOAD_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB
 
 
+# --- Response Models ---
+
+
+class VideoResponse(BaseModel):
+    id: int
+    title: Optional[str]
+    status: str
+    upload_time: datetime
+    file_path: str
+
+
+class UploadVideoResponse(VideoResponse):
+    error_msg: str
+
+
+class VideoListItem(BaseModel):
+    id: int
+    title: Optional[str]
+    status: str
+    time: datetime
+    file_path: str
+    proc: Optional[int]
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+class StreamActionResponse(BaseModel):
+    status: str
+    id: int
+    message: str
+
+
 class UploadSizeLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.url.path == "/api/videos/upload" and request.method == "POST":
@@ -66,7 +103,7 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
-@app.post("/api/videos/upload")
+@app.post("/api/videos/upload", response_model=UploadVideoResponse)
 async def upload_video(file: UploadFile = File(...), db: Session = Depends(get_db)):
     safe_name = f"{uuid.uuid4().hex}_{os.path.basename(file.filename or 'video')}"
     file_location = os.path.join(UPLOAD_DIR, safe_name)
@@ -89,13 +126,13 @@ async def upload_video(file: UploadFile = File(...), db: Session = Depends(get_d
         "id": video.id,
         "title": video.title,
         "status": video.status,
-        "upload_time": video.upload_time.isoformat(),
+        "upload_time": video.upload_time,
         "file_path": video.file_path,
         "error_msg": error_msg,
     }
 
 
-@app.get("/api/videos/list")
+@app.get("/api/videos/list", response_model=list[VideoListItem])
 def list_videos(db: Session = Depends(get_db)):
     video_crud = VideoCRUD(db)
     videos = video_crud.list()
@@ -104,7 +141,7 @@ def list_videos(db: Session = Depends(get_db)):
             "id": video.id,
             "title": video.title,
             "status": video.status,
-            "time": video.upload_time.isoformat(),
+            "time": video.upload_time,
             "file_path": video.file_path,
             "proc": video.proc,
         }
@@ -113,7 +150,7 @@ def list_videos(db: Session = Depends(get_db)):
     return videos
 
 
-@app.get("/api/videos/{video_id}")
+@app.get("/api/videos/{video_id}", response_model=VideoResponse)
 def get_video(video_id: int, db: Session = Depends(get_db)):
     video_crud = VideoCRUD(db)
     video = video_crud.get(video_id)
@@ -122,13 +159,13 @@ def get_video(video_id: int, db: Session = Depends(get_db)):
             "id": video.id,
             "title": video.title,
             "status": video.status,
-            "upload_time": video.upload_time.isoformat(),
+            "upload_time": video.upload_time,
             "file_path": video.file_path,
         }
     raise HTTPException(status_code=404, detail="Video not found")
 
 
-@app.delete("/api/videos/{video_id}")
+@app.delete("/api/videos/{video_id}", response_model=MessageResponse)
 def delete_video(video_id: int, db: Session = Depends(get_db)):
     video_crud = VideoCRUD(db)
     success = video_crud.delete(video_id)
@@ -139,7 +176,7 @@ def delete_video(video_id: int, db: Session = Depends(get_db)):
     )
 
 
-@app.get("/api/stream/{video_id}/start")
+@app.get("/api/stream/{video_id}/start", response_model=StreamActionResponse)
 def start_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
     print(f"Starting RTSP stream for video ID {video_id}")
     video_crud = VideoCRUD(db)
@@ -188,7 +225,7 @@ def start_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
         return {"status": "error", "message": str(e)}
 
 
-@app.get("/api/stream/{video_id}/stop")
+@app.get("/api/stream/{video_id}/stop", response_model=StreamActionResponse)
 def stop_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
     video_crud = VideoCRUD(db)
     video = video_crud.get(video_id)
