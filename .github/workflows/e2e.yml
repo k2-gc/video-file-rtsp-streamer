@@ -1,0 +1,58 @@
+name: E2E Smoke Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docker-compose.yml'
+      - 'tests/e2e/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docker-compose.yml'
+      - 'tests/e2e/**'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start stack
+        run: docker compose up -d --build
+
+      - name: Wait for stack to be ready
+        run: |
+          echo "Waiting for backend and nginx to be ready..."
+          for i in $(seq 1 30); do
+            BACKEND_OK=$(curl -sf http://localhost:8000/api/videos/list > /dev/null 2>&1 && echo "yes" || echo "no")
+            NGINX_OK=$(curl -sf http://localhost/ > /dev/null 2>&1 && echo "yes" || echo "no")
+            if [ "$BACKEND_OK" = "yes" ] && [ "$NGINX_OK" = "yes" ]; then
+              echo "Stack is ready"
+              exit 0
+            fi
+            echo "Attempt $i/30 — backend=$BACKEND_OK nginx=$NGINX_OK"
+            sleep 5
+          done
+          echo "Timed out waiting for stack"
+          docker compose logs
+          exit 1
+
+      - name: Install test dependencies
+        run: cd backend && uv sync --dev
+
+      - name: Run e2e smoke tests
+        run: cd backend && uv run pytest ../tests/e2e/ -v
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Teardown
+        if: always()
+        run: docker compose down
