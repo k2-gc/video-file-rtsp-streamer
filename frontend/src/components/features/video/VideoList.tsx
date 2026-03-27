@@ -14,15 +14,10 @@ import {
   IconButton,
 } from '@mui/material';
 import { PlayArrow, StopCircle, ContentCopy } from '@mui/icons-material';
+import type { Video } from '../../../types/video';
+import { fetchVideos, deleteVideo, startStream, stopStream } from '../../../utils/api';
 
-type Video = {
-  id: number;
-  title: string;
-  status: 'uploading' | 'completed' | 'error';
-  time: string;
-  proc: number | null; // For display "Start RTSP" or "Stop RTSP"
-  file_path?: string; // Just for backend compatibility
-};
+const RTSP_HOST = process.env.REACT_APP_RTSP_HOST ?? 'localhost';
 
 type VideoListProps = {
   refreshFlag?: number;
@@ -32,34 +27,26 @@ const VideoList: React.FC<VideoListProps> = ({ refreshFlag }) => {
   const [videos, setVideos] = useState<Video[]>([]);
   const [copySuccess, setCopySuccess] = useState<number | null>(null);
 
-  const url = 'http://localhost:8000/api';
-  const fetchVideos = async () => {
-    const fetchUrl = `${url}/videos/list`;
+  const loadVideos = async () => {
     try {
-      const response = await fetch(fetchUrl);
-      if (response.ok) {
-        const data = await response.json();
-        setVideos(data);
-      }
+      const data = await fetchVideos();
+      setVideos(data);
     } catch (error) {
       console.error('Error fetching videos:', error);
     }
   };
 
-  const deleteVideo = async (id: number) => {
-    const deleteUrl = `${url}/videos/${id}`;
+  const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(deleteUrl, { method: 'DELETE' });
-      if (response.ok) {
-        setVideos(videos.filter((video) => video.id !== id));
-      }
+      await deleteVideo(id);
+      setVideos(videos.filter((video) => video.id !== id));
     } catch (error) {
       console.error('Error deleting video:', error);
     }
   };
 
   useEffect(() => {
-    fetchVideos();
+    loadVideos();
   }, [refreshFlag]);
 
   const getStatusColor = (status: Video['status']) => {
@@ -80,35 +67,19 @@ const VideoList: React.FC<VideoListProps> = ({ refreshFlag }) => {
     return date.toLocaleString();
   };
 
-  const handleDelete = (id: number) => {
-    deleteVideo(id);
-  };
-
   const handlePlay = async (id: number) => {
-    console.log(`Playing video with id: ${id}`);
-    // Implement RTSP play logic here
-    const rtspUrl = `${url}/stream/${id}/start`;
     try {
-      const response = await fetch(rtspUrl, { method: 'GET' });
-      if (response.ok) {
-        console.log(`RTSP stream started for video id: ${id}`);
-        fetchVideos(); // Refresh the list to update proc status
-      }
+      await startStream(id);
+      loadVideos();
     } catch (error) {
       console.error('Error starting RTSP stream:', error);
     }
   };
 
   const handleStop = async (id: number) => {
-    console.log(`Stopping video with id: ${id}`);
-    // Implement RTSP stop logic here
-    const rtspUrl = `${url}/stream/${id}/stop`;
     try {
-      const response = await fetch(rtspUrl, { method: 'GET' });
-      if (response.ok) {
-        console.log(`RTSP stream stopped for video id: ${id}`);
-        fetchVideos(); // Refresh the list to update proc status
-      }
+      await stopStream(id);
+      loadVideos();
     } catch (error) {
       console.error('Error stopping RTSP stream:', error);
     }
@@ -164,7 +135,7 @@ const VideoList: React.FC<VideoListProps> = ({ refreshFlag }) => {
           <TableBody>
             {videos.map((video, index) => (
               <TableRow
-                key={index}
+                key={video.id}
                 sx={{
                   '&:hover': {
                     bgcolor: 'action.hover',
@@ -198,12 +169,12 @@ const VideoList: React.FC<VideoListProps> = ({ refreshFlag }) => {
                           textOverflow: 'ellipsis',
                         }}
                       >
-                        rtsp://localhost:8554/stream/{video.id}
+                        rtsp://{RTSP_HOST}:8554/stream/{video.id}
                       </Typography>
                       <IconButton
                         size="small"
                         onClick={() =>
-                          handleCopy(video.id, `rtsp://localhost:8554/stream/${video.id}`)
+                          handleCopy(video.id, `rtsp://${RTSP_HOST}:8554/stream/${video.id}`)
                         }
                         sx={{
                           color: copySuccess === video.id ? 'success.main' : 'text.primary',
