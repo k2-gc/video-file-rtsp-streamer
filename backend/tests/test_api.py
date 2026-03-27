@@ -19,6 +19,50 @@ def test_upload_video(client):
     assert "upload_time" in data
 
 
+def test_upload_path_traversal(client):
+    """Malicious filename should be sanitized, not used as-is."""
+    response = client.post(
+        "/api/videos/upload",
+        files={"file": ("../../etc/passwd", io.BytesIO(b"evil"), "video/mp4")},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # file_path should not contain ".."
+    assert ".." not in data["file_path"]
+    assert "passwd" in data["file_path"]
+
+
+def test_upload_too_large(client):
+    """Requests with Content-Length exceeding 2GB should be rejected."""
+    response = client.post(
+        "/api/videos/upload",
+        files={"file": ("big.mp4", io.BytesIO(b"data"), "video/mp4")},
+        headers={"content-length": str(2 * 1024 * 1024 * 1024 + 1)},
+    )
+    assert response.status_code == 413
+
+
+# --- CORS ---
+
+
+def test_cors_allowed_origin(client):
+    """Allowed origin receives Access-Control-Allow-Origin header."""
+    response = client.get(
+        "/api/videos/list", headers={"Origin": "http://localhost:3000"}
+    )
+    assert (
+        response.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    )
+
+
+def test_cors_disallowed_origin(client):
+    """Unknown origin must not receive Access-Control-Allow-Origin header."""
+    response = client.get(
+        "/api/videos/list", headers={"Origin": "http://evil.example.com"}
+    )
+    assert "access-control-allow-origin" not in response.headers
+
+
 # --- List ---
 
 
@@ -65,8 +109,7 @@ def test_get_video(client):
 
 def test_get_video_not_found(client):
     response = client.get("/api/videos/9999")
-    assert response.status_code == 200
-    assert "error" in response.json()
+    assert response.status_code == 404
 
 
 # --- Delete ---
@@ -90,8 +133,7 @@ def test_delete_video(client):
 
 def test_delete_video_not_found(client):
     response = client.delete("/api/videos/9999")
-    assert response.status_code == 200
-    assert "error" in response.json()
+    assert response.status_code == 404
 
 
 # --- Stream Start ---
@@ -109,7 +151,7 @@ def test_start_stream(mock_popen, client):
     )
     video_id = upload.json()["id"]
 
-    response = client.get(f"/api/stream/{video_id}/start")
+    response = client.post(f"/api/stream/{video_id}/start")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
@@ -134,18 +176,14 @@ def test_start_stream_already_running(mock_popen, mock_psutil, client):
     )
     video_id = upload.json()["id"]
 
-    client.get(f"/api/stream/{video_id}/start")
-    response = client.get(f"/api/stream/{video_id}/start")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "error"
-    assert "already running" in data["message"].lower()
+    client.post(f"/api/stream/{video_id}/start")
+    response = client.post(f"/api/stream/{video_id}/start")
+    assert response.status_code == 409
 
 
 def test_start_stream_not_found(client):
-    response = client.get("/api/stream/9999/start")
-    assert response.status_code == 200
-    assert response.json()["status"] == "error"
+    response = client.post("/api/stream/9999/start")
+    assert response.status_code == 404
 
 
 # --- Stream Stop ---
@@ -170,8 +208,8 @@ def test_stop_stream(mock_popen, mock_kill, mock_psutil, client):
     )
     video_id = upload.json()["id"]
 
-    client.get(f"/api/stream/{video_id}/start")
-    response = client.get(f"/api/stream/{video_id}/stop")
+    client.post(f"/api/stream/{video_id}/start")
+    response = client.post(f"/api/stream/{video_id}/stop")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
@@ -189,14 +227,35 @@ def test_stop_stream_not_running(client):
     )
     video_id = upload.json()["id"]
 
-    response = client.get(f"/api/stream/{video_id}/stop")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "error"
-    assert "already stopped" in data["message"].lower()
+    response = client.post(f"/api/stream/{video_id}/stop")
+    assert response.status_code == 409
 
 
 def test_stop_stream_not_found(client):
-    response = client.get("/api/stream/9999/stop")
+    response = client.post("/api/stream/9999/stop")
+    assert response.status_code == 404
+
+
+@patch("models.db_crud.psutil")
+@patch("app.os.kill", side_effect=ProcessLookupError)
+@patch("app.subprocess.Popen")
+def test_stop_stream_process_already_gone(mock_popen, mock_kill, mock_psutil, client):
+    """ProcessLookupError (process already dead) should still return success and clear proc."""
+    mock_proc = MagicMock()
+    mock_proc.pid = 12345
+    mock_popen.return_value = mock_proc
+    mock_psutil.pid_exists.return_value = True
+    mock_process = MagicMock()
+    mock_process.name.return_value = "ffmpeg"
+    mock_psutil.Process.return_value = mock_process
+
+    upload = client.post(
+        "/api/videos/upload",
+        files={"file": ("gone.mp4", io.BytesIO(b"data"), "video/mp4")},
+    )
+    video_id = upload.json()["id"]
+
+    client.post(f"/api/stream/{video_id}/start")
+    response = client.post(f"/api/stream/{video_id}/stop")
     assert response.status_code == 200
-    assert response.json()["status"] == "error"
+    assert response.json()["status"] == "success"
