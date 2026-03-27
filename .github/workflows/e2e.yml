@@ -44,10 +44,10 @@ jobs:
           exit 1
 
       - name: Install test dependencies
-        run: pip install httpx pytest
+        run: cd backend && uv sync --dev
 
       - name: Run e2e smoke tests
-        run: pytest tests/e2e/ -v
+        run: cd backend && uv run pytest ../tests/e2e/ -v
 
       - name: Show logs on failure
         if: failure()
