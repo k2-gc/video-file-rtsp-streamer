@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
+from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -8,7 +9,7 @@ import subprocess
 import signal
 import uuid
 
-from models import VideoCRUD
+from models import VideoCRUD, get_db
 
 MAX_UPLOAD_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB
 
@@ -46,7 +47,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @app.post("/api/videos/upload")
-async def upload_video(file: UploadFile = File(...)):
+async def upload_video(file: UploadFile = File(...), db: Session = Depends(get_db)):
     safe_name = f"{uuid.uuid4().hex}_{os.path.basename(file.filename or 'video')}"
     file_location = os.path.join(UPLOAD_DIR, safe_name)
     status = "uploading"
@@ -60,9 +61,8 @@ async def upload_video(file: UploadFile = File(...)):
     except Exception as e:
         status = "failed"
         error_msg = str(e)
-    video_crud = VideoCRUD()
+    video_crud = VideoCRUD(db)
     video = video_crud.create(title=file.filename, file_path=file_location, status=status)
-    video_crud.close()
     return {
         "id": video.id,
         "title": video.title,
@@ -73,10 +73,9 @@ async def upload_video(file: UploadFile = File(...)):
     }
 
 @app.get("/api/videos/list")
-def list_videos():
-    video_crud = VideoCRUD()
+def list_videos(db: Session = Depends(get_db)):
+    video_crud = VideoCRUD(db)
     videos = video_crud.list()
-    video_crud.close()
     videos = [{
         "id": video.id,
         "title": video.title,
@@ -88,10 +87,9 @@ def list_videos():
     return videos
 
 @app.get("/api/videos/{video_id}")
-def get_video(video_id: int):
-    video_crud = VideoCRUD()
+def get_video(video_id: int, db: Session = Depends(get_db)):
+    video_crud = VideoCRUD(db)
     video = video_crud.get(video_id)
-    video_crud.close()
     if video:
         return {
             "id": video.id,
@@ -103,24 +101,22 @@ def get_video(video_id: int):
     return {"error": "Video not found"}
 
 @app.delete("/api/videos/{video_id}")
-def delete_video(video_id: int):
-    video_crud = VideoCRUD()
+def delete_video(video_id: int, db: Session = Depends(get_db)):
+    video_crud = VideoCRUD(db)
     success = video_crud.delete(video_id)
-    video_crud.close()
     if success:
         return {"message": "Video deleted successfully"}
     return {"error": "Video not found or could not be deleted"}
 
 @app.get("/api/stream/{video_id}/start")
-def start_rtsp_stream(video_id: int):
+def start_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
     print(f"Starting RTSP stream for video ID {video_id}")
-    video_crud = VideoCRUD()
+    video_crud = VideoCRUD(db)
     video = video_crud.get(video_id)
-    video_crud.close()
     if not video:
         print("Video not found")
         return {"status": "error", "message": "Video not found"}
-    if not video.proc is None:
+    if video.proc is not None:
         print("Stream already running for this video")
         return {"status": "error", "message": "Stream already running for this video"}
     try:
@@ -140,24 +136,18 @@ def start_rtsp_stream(video_id: int):
             proc = subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
         else:
             proc = subprocess.Popen(cmd)
-        video.proc = proc.pid
-        video_crud = VideoCRUD()
         video_crud.update(video_id, proc=proc.pid)
-        video_crud.close()
         print(f"Started RTSP stream for video ID {video_id} with PID {proc.pid}")
         return {"status": "success", "id": video_id, "message": f"RTSP stream started for video ID {video_id}"}
     except Exception as e:
-        video_crud = VideoCRUD()
         video_crud.update(video_id, proc=None)
-        video_crud.close()
         print(f"Error starting RTSP stream: {e}")
         return {"status": "error", "message": str(e)}
 
 @app.get("/api/stream/{video_id}/stop")
-def stop_rtsp_stream(video_id: int):
-    video_crud = VideoCRUD()
+def stop_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
+    video_crud = VideoCRUD(db)
     video = video_crud.get(video_id)
-    video_crud.close()
     if not video:
         print("Video not found")
         return {"status": "error", "message": "Video not found"}
@@ -170,9 +160,7 @@ def stop_rtsp_stream(video_id: int):
             os.kill(video.proc, signal.CTRL_BREAK_EVENT)
         else:  # Unix系
             os.kill(video.proc, signal.SIGTERM)
-        video_crud = VideoCRUD()
         video_crud.update(video_id, proc=None)
-        video_crud.close()
         return {"status": "success", "id": video_id, "message": f"RTSP stream stopped for video ID {video_id}"}
     except Exception as e:
         return {"status": "error", "message": str(e)}

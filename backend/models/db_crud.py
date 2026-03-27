@@ -1,7 +1,8 @@
-from .schema import Base, Video, SessionLocal, engine
+from .schema import Base, Video, engine
 from datetime import datetime
 import os
 from typing import List, Optional
+from sqlalchemy.orm import Session
 import psutil
 
 
@@ -10,9 +11,8 @@ class VideoCRUD:
     def create_tables():
         Base.metadata.create_all(bind=engine)
 
-    def __init__(self):
-        self.db = SessionLocal()
-        self.cleanup_orphaned_processes()
+    def __init__(self, db: Session):
+        self.db = db
     
     def cleanup_orphaned_processes(self) -> None:
         try:
@@ -69,9 +69,6 @@ class VideoCRUD:
             return True
         return False
     
-    def close(self):
-        self.db.close()
-
     def update(self, video_id: int, **kwargs) -> bool:
         video = self.get(video_id)
         if video:
