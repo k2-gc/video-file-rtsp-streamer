@@ -213,3 +213,6 @@ __marimo__/
 *.db
 
 node_modules/
+
+
+copilot-instructions.md
