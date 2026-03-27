@@ -125,7 +125,7 @@ def get_video(video_id: int, db: Session = Depends(get_db)):
             "upload_time": video.upload_time.isoformat(),
             "file_path": video.file_path,
         }
-    return {"error": "Video not found"}
+    raise HTTPException(status_code=404, detail="Video not found")
 
 
 @app.delete("/api/videos/{video_id}")
@@ -134,7 +134,9 @@ def delete_video(video_id: int, db: Session = Depends(get_db)):
     success = video_crud.delete(video_id)
     if success:
         return {"message": "Video deleted successfully"}
-    return {"error": "Video not found or could not be deleted"}
+    raise HTTPException(
+        status_code=404, detail="Video not found or could not be deleted"
+    )
 
 
 @app.get("/api/stream/{video_id}/start")
@@ -143,11 +145,11 @@ def start_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
     video_crud = VideoCRUD(db)
     video = video_crud.get(video_id)
     if not video:
-        print("Video not found")
-        return {"status": "error", "message": "Video not found"}
+        raise HTTPException(status_code=404, detail="Video not found")
     if video.proc is not None:
-        print("Stream already running for this video")
-        return {"status": "error", "message": "Stream already running for this video"}
+        raise HTTPException(
+            status_code=409, detail="Stream already running for this video"
+        )
     try:
         video_path = video.file_path
         cmd = [
@@ -191,11 +193,11 @@ def stop_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
     video_crud = VideoCRUD(db)
     video = video_crud.get(video_id)
     if not video:
-        print("Video not found")
-        return {"status": "error", "message": "Video not found"}
+        raise HTTPException(status_code=404, detail="Video not found")
     if video.proc is None:
-        print("Stream already stopped for this video")
-        return {"status": "error", "message": "Stream already stopped for this video"}
+        raise HTTPException(
+            status_code=409, detail="Stream already stopped for this video"
+        )
     try:
         # Terminate the process
         if os.name == "nt":  # Windows

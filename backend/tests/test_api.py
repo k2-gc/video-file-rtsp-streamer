@@ -47,13 +47,19 @@ def test_upload_too_large(client):
 
 def test_cors_allowed_origin(client):
     """Allowed origin receives Access-Control-Allow-Origin header."""
-    response = client.get("/api/videos/list", headers={"Origin": "http://localhost:3000"})
-    assert response.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    response = client.get(
+        "/api/videos/list", headers={"Origin": "http://localhost:3000"}
+    )
+    assert (
+        response.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    )
 
 
 def test_cors_disallowed_origin(client):
     """Unknown origin must not receive Access-Control-Allow-Origin header."""
-    response = client.get("/api/videos/list", headers={"Origin": "http://evil.example.com"})
+    response = client.get(
+        "/api/videos/list", headers={"Origin": "http://evil.example.com"}
+    )
     assert "access-control-allow-origin" not in response.headers
 
 
@@ -103,8 +109,7 @@ def test_get_video(client):
 
 def test_get_video_not_found(client):
     response = client.get("/api/videos/9999")
-    assert response.status_code == 200
-    assert "error" in response.json()
+    assert response.status_code == 404
 
 
 # --- Delete ---
@@ -128,8 +133,7 @@ def test_delete_video(client):
 
 def test_delete_video_not_found(client):
     response = client.delete("/api/videos/9999")
-    assert response.status_code == 200
-    assert "error" in response.json()
+    assert response.status_code == 404
 
 
 # --- Stream Start ---
@@ -174,16 +178,12 @@ def test_start_stream_already_running(mock_popen, mock_psutil, client):
 
     client.get(f"/api/stream/{video_id}/start")
     response = client.get(f"/api/stream/{video_id}/start")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "error"
-    assert "already running" in data["message"].lower()
+    assert response.status_code == 409
 
 
 def test_start_stream_not_found(client):
     response = client.get("/api/stream/9999/start")
-    assert response.status_code == 200
-    assert response.json()["status"] == "error"
+    assert response.status_code == 404
 
 
 # --- Stream Stop ---
@@ -228,13 +228,9 @@ def test_stop_stream_not_running(client):
     video_id = upload.json()["id"]
 
     response = client.get(f"/api/stream/{video_id}/stop")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "error"
-    assert "already stopped" in data["message"].lower()
+    assert response.status_code == 409
 
 
 def test_stop_stream_not_found(client):
     response = client.get("/api/stream/9999/stop")
-    assert response.status_code == 200
-    assert response.json()["status"] == "error"
+    assert response.status_code == 404
