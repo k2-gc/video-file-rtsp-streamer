@@ -32,6 +32,16 @@ def test_upload_path_traversal(client):
     assert "passwd" in data["file_path"]
 
 
+def test_upload_too_large(client):
+    """Requests with Content-Length exceeding 2GB should be rejected."""
+    response = client.post(
+        "/api/videos/upload",
+        files={"file": ("big.mp4", io.BytesIO(b"data"), "video/mp4")},
+        headers={"content-length": str(2 * 1024 * 1024 * 1024 + 1)},
+    )
+    assert response.status_code == 413
+
+
 # --- List ---
 
 

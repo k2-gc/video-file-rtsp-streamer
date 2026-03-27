@@ -1,5 +1,8 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 import os
 import subprocess
 import signal
@@ -7,8 +10,23 @@ import uuid
 
 from models import VideoCRUD
 
+MAX_UPLOAD_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB
+
+
+class UploadSizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/api/videos/upload" and request.method == "POST":
+            content_length = request.headers.get("content-length")
+            if content_length and int(content_length) > MAX_UPLOAD_SIZE:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "File too large (max 2GB)"},
+                )
+        return await call_next(request)
+
 app = FastAPI()
 
+app.add_middleware(UploadSizeLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
