@@ -19,6 +19,19 @@ def test_upload_video(client):
     assert "upload_time" in data
 
 
+def test_upload_path_traversal(client):
+    """Malicious filename should be sanitized, not used as-is."""
+    response = client.post(
+        "/api/videos/upload",
+        files={"file": ("../../etc/passwd", io.BytesIO(b"evil"), "video/mp4")},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # file_path should not contain ".."
+    assert ".." not in data["file_path"]
+    assert "passwd" in data["file_path"]
+
+
 # --- List ---
 
 

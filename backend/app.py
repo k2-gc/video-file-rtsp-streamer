@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import subprocess
 import signal
+import uuid
 
 from models import VideoCRUD
 
@@ -26,7 +27,8 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.post("/api/videos/upload")
 async def upload_video(file: UploadFile = File(...)):
-    file_location = os.path.join(UPLOAD_DIR, file.filename)
+    safe_name = f"{uuid.uuid4().hex}_{os.path.basename(file.filename or 'video')}"
+    file_location = os.path.join(UPLOAD_DIR, safe_name)
     status = "uploading"
     error_msg = ""
     try:
