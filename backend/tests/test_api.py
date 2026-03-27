@@ -151,7 +151,7 @@ def test_start_stream(mock_popen, client):
     )
     video_id = upload.json()["id"]
 
-    response = client.get(f"/api/stream/{video_id}/start")
+    response = client.post(f"/api/stream/{video_id}/start")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
@@ -176,13 +176,13 @@ def test_start_stream_already_running(mock_popen, mock_psutil, client):
     )
     video_id = upload.json()["id"]
 
-    client.get(f"/api/stream/{video_id}/start")
-    response = client.get(f"/api/stream/{video_id}/start")
+    client.post(f"/api/stream/{video_id}/start")
+    response = client.post(f"/api/stream/{video_id}/start")
     assert response.status_code == 409
 
 
 def test_start_stream_not_found(client):
-    response = client.get("/api/stream/9999/start")
+    response = client.post("/api/stream/9999/start")
     assert response.status_code == 404
 
 
@@ -208,8 +208,8 @@ def test_stop_stream(mock_popen, mock_kill, mock_psutil, client):
     )
     video_id = upload.json()["id"]
 
-    client.get(f"/api/stream/{video_id}/start")
-    response = client.get(f"/api/stream/{video_id}/stop")
+    client.post(f"/api/stream/{video_id}/start")
+    response = client.post(f"/api/stream/{video_id}/stop")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
@@ -227,10 +227,35 @@ def test_stop_stream_not_running(client):
     )
     video_id = upload.json()["id"]
 
-    response = client.get(f"/api/stream/{video_id}/stop")
+    response = client.post(f"/api/stream/{video_id}/stop")
     assert response.status_code == 409
 
 
 def test_stop_stream_not_found(client):
-    response = client.get("/api/stream/9999/stop")
+    response = client.post("/api/stream/9999/stop")
     assert response.status_code == 404
+
+
+@patch("models.db_crud.psutil")
+@patch("app.os.kill", side_effect=ProcessLookupError)
+@patch("app.subprocess.Popen")
+def test_stop_stream_process_already_gone(mock_popen, mock_kill, mock_psutil, client):
+    """ProcessLookupError (process already dead) should still return success and clear proc."""
+    mock_proc = MagicMock()
+    mock_proc.pid = 12345
+    mock_popen.return_value = mock_proc
+    mock_psutil.pid_exists.return_value = True
+    mock_process = MagicMock()
+    mock_process.name.return_value = "ffmpeg"
+    mock_psutil.Process.return_value = mock_process
+
+    upload = client.post(
+        "/api/videos/upload",
+        files={"file": ("gone.mp4", io.BytesIO(b"data"), "video/mp4")},
+    )
+    video_id = upload.json()["id"]
+
+    client.post(f"/api/stream/{video_id}/start")
+    response = client.post(f"/api/stream/{video_id}/stop")
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"

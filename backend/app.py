@@ -176,7 +176,7 @@ def delete_video(video_id: int, db: Session = Depends(get_db)):
     )
 
 
-@app.get("/api/stream/{video_id}/start", response_model=StreamActionResponse)
+@app.post("/api/stream/{video_id}/start", response_model=StreamActionResponse)
 def start_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
     print(f"Starting RTSP stream for video ID {video_id}")
     video_crud = VideoCRUD(db)
@@ -225,7 +225,7 @@ def start_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
         return {"status": "error", "message": str(e)}
 
 
-@app.get("/api/stream/{video_id}/stop", response_model=StreamActionResponse)
+@app.post("/api/stream/{video_id}/stop", response_model=StreamActionResponse)
 def stop_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
     video_crud = VideoCRUD(db)
     video = video_crud.get(video_id)
@@ -241,6 +241,14 @@ def stop_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
             os.kill(video.proc, signal.CTRL_BREAK_EVENT)
         else:  # Unix系
             os.kill(video.proc, signal.SIGTERM)
+        video_crud.update(video_id, proc=None)
+        return {
+            "status": "success",
+            "id": video_id,
+            "message": f"RTSP stream stopped for video ID {video_id}",
+        }
+    except ProcessLookupError:
+        # Process already gone — clean up the stale PID
         video_crud.update(video_id, proc=None)
         return {
             "status": "success",
