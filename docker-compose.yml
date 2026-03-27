@@ -12,6 +12,7 @@ services:
       - PYTHONPATH=/app
       - RTSP_SERVER_HOST=rtsp-server
       - DATABASE_PATH=sqlite:///./data/videos.db
+      - ALLOWED_ORIGINS=http://localhost:3000
     depends_on:
       - rtsp-server
     networks:

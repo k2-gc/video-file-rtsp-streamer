@@ -42,6 +42,21 @@ def test_upload_too_large(client):
     assert response.status_code == 413
 
 
+# --- CORS ---
+
+
+def test_cors_allowed_origin(client):
+    """Allowed origin receives Access-Control-Allow-Origin header."""
+    response = client.get("/api/videos/list", headers={"Origin": "http://localhost:3000"})
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+
+def test_cors_disallowed_origin(client):
+    """Unknown origin must not receive Access-Control-Allow-Origin header."""
+    response = client.get("/api/videos/list", headers={"Origin": "http://evil.example.com"})
+    assert "access-control-allow-origin" not in response.headers
+
+
 # --- List ---
 
 
