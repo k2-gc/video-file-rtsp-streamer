@@ -8,10 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+import logging
 import os
 import subprocess
 import signal
 import uuid
+
+logger = logging.getLogger(__name__)
 
 from models import (
     VideoCRUD,
@@ -178,7 +181,7 @@ def delete_video(video_id: int, db: Session = Depends(get_db)):
 
 @app.post("/api/stream/{video_id}/start", response_model=StreamActionResponse)
 def start_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
-    print(f"Starting RTSP stream for video ID {video_id}")
+    logger.info("Starting RTSP stream for video ID %d", video_id)
     video_crud = VideoCRUD(db)
     video = video_crud.get(video_id)
     if not video:
@@ -213,7 +216,9 @@ def start_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
         else:
             proc = subprocess.Popen(cmd)
         video_crud.update(video_id, proc=proc.pid)
-        print(f"Started RTSP stream for video ID {video_id} with PID {proc.pid}")
+        logger.info(
+            "Started RTSP stream for video ID %d with PID %d", video_id, proc.pid
+        )
         return {
             "status": "success",
             "id": video_id,
@@ -221,8 +226,8 @@ def start_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
         }
     except Exception as e:
         video_crud.update(video_id, proc=None)
-        print(f"Error starting RTSP stream: {e}")
-        return {"status": "error", "message": str(e)}
+        logger.error("Error starting RTSP stream: %s", e)
+        return {"status": "error", "id": video_id, "message": str(e)}
 
 
 @app.post("/api/stream/{video_id}/stop", response_model=StreamActionResponse)
@@ -256,7 +261,8 @@ def stop_rtsp_stream(video_id: int, db: Session = Depends(get_db)):
             "message": f"RTSP stream stopped for video ID {video_id}",
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        logger.error("Error stopping RTSP stream: %s", e)
+        return {"status": "error", "id": video_id, "message": str(e)}
 
 
 if __name__ == "__main__":
