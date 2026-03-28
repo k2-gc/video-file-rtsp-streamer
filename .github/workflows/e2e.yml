@@ -23,6 +23,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
       - name: Build and start stack
         run: docker compose up -d --build
 
