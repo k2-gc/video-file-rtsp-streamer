@@ -49,3 +49,45 @@ def test_upload_appears_in_list(base_url):
     assert list_r.status_code == 200
     titles = [v["title"] for v in list_r.json()]
     assert "e2e_smoke.mp4" in titles
+
+
+# --- delete flow ---
+
+
+def test_delete_removes_from_list(base_url):
+    """Upload a video, delete it, and verify it no longer appears in the list."""
+    upload_r = httpx.post(
+        f"{base_url}/api/videos/upload",
+        files={"file": ("e2e_delete.mp4", io.BytesIO(b"delete me"), "video/mp4")},
+    )
+    assert upload_r.status_code == 200
+    video_id = upload_r.json()["id"]
+
+    delete_r = httpx.delete(f"{base_url}/api/videos/{video_id}")
+    assert delete_r.status_code == 200
+
+    list_r = httpx.get(f"{base_url}/api/videos/list")
+    ids = [v["id"] for v in list_r.json()]
+    assert video_id not in ids
+
+
+# --- CORS ---
+
+
+def test_cors_allowed_origin_via_nginx(base_url):
+    """Requests with allowed Origin through nginx receive CORS headers."""
+    r = httpx.get(
+        f"{base_url}/api/videos/list",
+        headers={"Origin": "http://localhost"},
+    )
+    assert r.status_code == 200
+    assert r.headers.get("access-control-allow-origin") == "http://localhost"
+
+
+def test_cors_disallowed_origin_via_nginx(base_url):
+    """Requests with disallowed Origin through nginx must not get CORS headers."""
+    r = httpx.get(
+        f"{base_url}/api/videos/list",
+        headers={"Origin": "http://evil.example.com"},
+    )
+    assert "access-control-allow-origin" not in r.headers
