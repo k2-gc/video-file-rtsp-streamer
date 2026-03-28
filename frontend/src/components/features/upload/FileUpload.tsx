@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Box, Button, Paper, Typography } from '@mui/material';
 import { VideoFile } from '@mui/icons-material';
+import { uploadVideo as apiUploadVideo } from '../../../utils/api';
 
 type Video = {
   title: string;
@@ -13,30 +14,15 @@ const FileUpload: React.FC = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const url = 'http://localhost:8000/api/videos/upload';
   const uploadVideo = async (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
+      const data = await apiUploadVideo(file);
+      const is_completed = data.status === 'completed';
+      setCurrentVideo({
+        title: file.name,
+        status: is_completed ? 'completed' : 'error',
+        time: new Date().toISOString(),
       });
-      if (response.ok) {
-        const data = await response.json();
-        const is_completed = data.status === 'completed';
-        setCurrentVideo({
-          title: file.name,
-          status: is_completed ? 'completed' : 'error',
-          time: new Date().toISOString(),
-        });
-      } else {
-        setCurrentVideo({
-          title: file.name,
-          status: 'error',
-          time: new Date().toISOString(),
-        });
-      }
     } catch (error) {
       console.error('Error uploading video:', error);
       setCurrentVideo({
